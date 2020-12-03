@@ -28,7 +28,9 @@ jobs:
         conda info
         conda list
     - name: Install BioPerl >=1.7.2
-      run: conda install "perl-bioperl>=1.7.2"
+      run: conda install "perl-bioperl>=1.7.2" "gxx_linux-64 ==7.3.0"
+    - name: g++ version
+      run: g++ --version
     - name: configure
       run: ./configure
     - name: make
