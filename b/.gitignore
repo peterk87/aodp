@@ -1,0 +1,4 @@
+# exclude everything
+*
+# include this file
+!.gitignore

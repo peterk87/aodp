@@ -1,0 +1,102 @@
+#!/usr/bin/env perl
+
+use Bio::TreeIO;
+use Bio::Tree::Tree;
+use Bio::Tree::Draw::Cladogram;
+
+use strict;
+
+sub clado {
+	my $treeio=Bio::TreeIO ->new(
+		-format => "newick",
+		-file => $ARGV[0]
+	); # will die if the file cannot be open or is corrupt
+
+	my $tree = $treeio->next_tree;
+
+	foreach my $node ( $tree->get_nodes()) {
+		next unless $node->id() =~ /\*$/; # if node ends with a '*'
+
+		$node->add_tag_value( 'Rcolor', 1 );
+		next if $node->is_Leaf(); # leaf nodes are colored red
+
+		foreach my $child ( $node->get_all_Descendents()) { # internal nodes and all their descendents are coloured red
+			$child->add_tag_value( 'Rcolor', 1 );
+		}
+	}
+
+	my $c = Bio::Tree::Draw::Cladogram->new(
+		-tree   => $tree,
+		-colors => 1,
+		-bootstrap => 1
+	);
+
+	$c->print(
+		-file => $ARGV[1]
+	);    
+};
+
+if(( $#ARGV < 1 ) || ( $ARGV[0] eq "--help" )) {
+	system( "perldoc $0" );
+	exit 1;
+}
+
+clado();
+
+1;
+
+=head1 NAME 
+
+=for comment
+version number; automatically generated from the latest git tag
+overwrites stuff between "" in the line below magic
+see the Makefile in the project root
+magic line below (do not modify)
+
+L<|iMMmwyWGTTGeJ6TYQg2myA>
+Cladogram generator (clado) version "2.5.0.1"
+
+=head1 SYNOPSIS
+
+B<clado> I<newick-tree-file> I<output-file>
+
+=head1 DESCRIPTION
+
+C<clado> generates an eps file from a phylogeny tree file in a Newick format.
+Nodes that have names ending in C<*> are colored red.
+
+C<clado> is a simple wrapper around C<Bio::Tree::Draw::Cladogram> (C<Bioperl> module).
+
+=head1 SEE ALSO
+
+=over 2
+
+=item aodp
+
+The Automated Oligonucleotide Design Pipeline finds oligo signatures for sequences and groups of sequences in a sequence database
+
+=item Bioperl
+
+a collection of Perl modules that facilitate the development of Perl scripts for bioinformatics applications
+
+=item Bio::Tree::Draw::Cladogram
+
+drawing phylogenetic trees in Encapsulated PostScript (EPS) format (C<Bioperl> module)
+
+=item Newick tree format
+
+http://evolution.genetics.washington.edu/phylip/newick_doc.html (last retrieved April 14, 2016)
+
+=back
+
+=head1 COPYRIGHT
+
+This file is part of B<aodp> (the Automated Oligonucleotide Design Pipeline)
+
+B<(C) HER MAJESTY THE QUEEN IN RIGHT OF CANADA (2015-2016)>
+
+=head1 AUTHORS
+
+Kaisheng (Kevin) Chen, Chuyang (Charles) Qi, Eric Hardy, Manuel Zahariev (mz@alumni.sfu.ca), Wen Chen* (wen.chen@agr.gc.ca)
+
+=cut

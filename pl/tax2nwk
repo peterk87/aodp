@@ -1,0 +1,181 @@
+#!/usr/bin/env perl
+
+use strict;
+
+my %nodes;
+$nodes{ "" } = "";
+
+sub addChild {
+	my ( $long_parent_name, $child_name ) = @_;
+
+	die "node does not exist ('$long_parent_name')" unless exists $nodes{ $long_parent_name };
+
+	return if exists $nodes{ $long_parent_name." ".$child_name };
+
+	$nodes{ $long_parent_name } .= " ".$child_name;
+	$nodes{ $long_parent_name." ".$child_name } = "";
+}
+
+sub printChildren {
+	my $long_name = shift;
+
+	die "node does not exist ('$long_name')" unless exists $nodes{ $long_name };
+
+	return unless length $nodes{ $long_name };
+
+	print "(";
+
+	my $first = 1;
+	foreach my $child ( split / /, $nodes{ $long_name } ) {
+		next unless $child;
+
+		if( $first ) { $first = 0; }
+		else { print ','; }
+
+		printChildren( $long_name." ".$child );
+
+		print $child, ":1";
+	}
+
+	print ")";
+}
+
+sub printTree {
+	printChildren( "" );
+	print ";", $/;
+};
+
+sub tax2nwk {
+	foreach my $line ( <> ) {
+		chomp $line;
+
+		my ($seq, $tax) = split /\t/, $line;
+		my $long_name = "";
+
+		foreach my $token ( split /;/, $tax ) {
+			$token =~ s/^\s+//; # ltrim space
+			$token =~ s/\s+$//; # rtrim space
+
+			die "taxonomy level cannot contain any whitespace ('$token')" if $token =~ /\s+/;
+
+			addChild( $long_name, $token );
+
+			$long_name .= " ".$token;
+		}
+
+		addChild( $long_name, $seq );
+	}
+
+	printTree();
+
+# 	map { print $_, ":", join " ", $nodes{ $_ }, $/ } sort keys %nodes;
+}
+
+if(( $#ARGV >= 0 ) && ( $ARGV[0] eq "--help" )) {
+	system( "perldoc $0" );
+	exit 1;
+}
+
+tax2nwk;
+
+0;
+
+=head1 NAME 
+
+=for comment
+version number; automatically generated from the latest git tag
+overwrites stuff between "" in the line below magic
+see the Makefile in the project root
+magic line below (do not modify)
+
+L<|iMMmwyWGTTGeJ6TYQg2myA>
+Taxonomy to Newick convertor (C<tax2nwk>) version "2.5.0.1"
+
+=head1 SYNOPSIS
+
+ tax2nwk < taxonomy.txt
+
+=head1 DESCRIPTION
+
+C<tax2nwk> converts a taxonomy file into a Newick phylogeny tree.
+
+=head1 INPUT
+
+Expects a tab-delimited file with the following fields:
+
+=over 4
+
+=item sequence identifier
+
+Expected to match the sequence identifier in a C<FASTA> file. Example:
+
+	UDB016649
+
+Cannot contain whitespaces (e.g. B<UDB 016649>).
+
+=item taxonomy
+
+Semicolon-separated list of taxonomy levels. Example:
+
+	k__Fungi;p__Basidiomycota;c__Agaricomycetes;o__Thelephorales ...
+
+Taxonomy levels cannot contain whitespaces (e.g. B<c__Agaricomycet es> )
+
+=back
+
+=head1 OUTPUT
+
+C<tax2nwk> prints to standard output a corresponding Newick phylogeny tree.
+
+Leaf nodes will contain sequence id-s.
+Internal nodes will be labelled with the name of taxonomy level (e.g. B<c__Agaricomycetes>).
+All branch lengths are set to B<1>.
+
+Example:
+
+	((...(UDB016649,UDB02342)s__Cystoderma_amianthinum...)k_Fungi);
+
+=head1 SEE ALSO
+
+=over 2
+
+=item aodp
+
+The Automated Oligonucleotide Design Pipeline finds oligonucleotide signatures for sequences and groups of sequences in a sequence database
+
+=item Newick phylogeny file format
+
+http://evolution.genetics.washington.edu/phylip/newick_doc.html
+
+=item Taxonomy format
+
+https://mothur.org/wiki/Taxonomy_outline
+
+=back
+
+=head1 COPYRIGHT
+
+This file is part of C<aodp> (the Automated Oligonucleotide Design Pipeline)
+
+C<(C) HER MAJESTY THE QUEEN IN RIGHT OF CANADA (2017)>
+
+C<(C) Manuel Zahariev mz@alumni.sfu.ca (2017)>
+
+C<aodp> is free software: you can redistribute it and/or
+modify it under the terms of version 3 of the GNU General Public
+License as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License (version 3) for more details.
+
+You should have received a copy of the GNU General Public License
+(version 3) along with this program. If not, see
+http://www.gnu.org/licenses/.
+
+=head1 AUTHORS
+
+Manuel Zahariev (mz@alumni.sfu.ca)
+
+=cut

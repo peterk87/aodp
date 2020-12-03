@@ -1,0 +1,559 @@
+#!/usr/bin/env perl
+
+=head1 NAME 
+
+=for comment
+version number; automatically generated from the latest git tag
+overwrites stuff between "" in the line below magic
+see the Makefile in the project root
+magic line below (do not modify)
+
+L<|iMMmwyWGTTGeJ6TYQg2myA>
+aodp - Automated Oligonucleotide Design Pipeline version "2.5.0.1"
+
+=head1 SYNOPSIS
+
+B<aodp> [I<options>] I<output> I<fasta-sequence-file...>
+
+=head1 DESCRIPTION
+
+C<aodp> generates oligonucleotide signatures for sequences in B<FASTA> format
+and for all groups in a phylogeny in the B<Newick tree> format.
+
+=head1 INPUT
+
+Multiple input sequence files in the B<FASTA> format can be specified anywhere on the command line.
+The usual file name wildcards can be used. 
+Any command line argument without the prefix C<--> will be treated as a file name.
+
+Each B<FASTA> file can contain multiple sequences.
+Sequence identifiers are read from the B<FASTA> description lines (lines starting with C<>>).
+Everything on the description line following a space is ignored.
+
+Multiple occurrences of sequences with the same identifier are considered
+as the same sequence, with several discountiguous sections.
+
+If any of the specified
+I<fasta-sequence-file>-s cannot be open or completely parsed, B<aodp> will terminate with an error.
+
+=head1 OUTPUT
+
+At least one output option is required.
+For each output option, if B<file-name> is not specified, the result is written to standard output.
+
+=over
+
+=item --strings[=file-name]
+
+Writes all oligo strings grouped by sequence or group
+
+=item --positions[=file-name]
+
+Output for Array Designer (tab-separated list of oligo sites)
+
+=item --ranges[=file-name]
+
+All ranges of sites of oligos grouped by sequence or group
+
+=item --fasta[=file-name]
+
+All oligos in FASTA format
+
+=item --gff[=file-name]
+
+All oligos in GFF format
+
+=item --newick[=file-name]
+
+Writes a phylogeny (B<Newick tree> format), with exactly the same structure as the input tree, 
+with generated labels for internal nodes.
+
+Requires a B<--tree-file> input
+
+=item --node-list[=file-name]
+
+List of sequences for every internal node in the phylogeny
+
+Requires a B<--tree-file> input
+
+=item --lineage[=file-name]
+
+Lineage of every sequence in the phylogeny
+
+Requires a B<--tree-file> input
+
+=item --fold[=file-name]
+
+Predicted secondary structure and calculated two-state melting
+temperature for all oligonucleotide signature candidates discarded because of higher melting temperature than B<--max-melting>
+
+If the option B<--max-melting> is not specified, will print the predicted secondary structure for all oligonucleotide candidates.
+Melting temperatures below 0C or over 100C will be indicated as C<*>.
+
+=item --cladogram=(file-name)
+
+printout in the eps format of a cladogram associated with the annotated phylogeny tree.
+All nodes with identified oligos are marked with a C<*> and these nodes and their descendents are
+coloured red.
+
+Requires a B<--tree-file> option and a file-name
+
+=item --time[=file-name]
+
+Tab-separated C<user>, C<system>, C<elapsed> time and
+maximum memory usage for various phases of processing
+
+=item --basename=(name)
+
+All oligos in the following formats:
+
+=over 2
+
+=item * C<name.oligo.strings> strings grouped by sequence and/or group
+
+=item * C<name.oligo.fasta> B<FASTA>
+
+=item * C<name.oligo.gff> B<GFF>
+
+=item * C<name.oligo.tab> tab-separated
+
+=item * C<name.oligo.positions> positions
+
+=item * C<name.oligo.ranges> ranges
+
+=back
+
+If the option B<--tree-file> is specified (phylogeny tree), the
+following output files will also be generated:
+
+=over 2
+
+=item * C<name.newick> phylogeny tree with labeled internal nodes
+
+=item * C<name.node-list> list of sequences for every internal node
+
+=item * C<name.lineage> lineage of every sequence in the phylogeny
+
+=item * C<name.cladogram.eps> cladogram associated with the annotated phylogeny tree
+
+=back
+
+The output options B<--strings>, B<--fasta>, B<--gff>, B<--tab>, B<--positions>, B<--ranges> B<--newick>, B<--node-list>, B<--lineage> and B<--cladogram>
+are incompatible with B<--basename>.
+
+=item --cluster-list[=file-name]
+
+Generates the list of clusters: groupings of sequences that can be identified by at least one oligonucleotide signature (cluster
+oligonucleotide signature).
+
+The output contains the following tab-separated columns:
+
+=over 2
+
+=item * Numeric identifier of the cluster. This is a generated value.
+
+=item * Space-separated list of all identifiers of sequences contained in the cluster
+
+=item * If the cluster matches exactly a target node (leaf node or internal phylogeny node), an additional column with
+the name of this node is included
+
+=back
+
+=item --cluster-oligos[=file-name]
+
+Generates the list of all oligonucleotide signatures for all
+clusters identified. The output contains the following tab-separated columns:
+
+=over 2
+
+=item * Numeric identifier of the cluster. This matches the value in B<--cluster-list>.
+
+=item * String representation of the cluster oligonucleotide signature
+
+=back
+
+=item --clusters=(name)
+
+Generates a file of cluster nodes (C<name.cluster-list>) and a file of cluster oligonucleotide signatures (C<name.cluster-oligos>)
+
+The output options B<--cluster-list> and B<--cluster-oligos> are incompatible with B<--clusters>.
+
+=item --match=(target-FASTA-file)
+
+Finds the closest matching source sequence for each sequence from the B<target-FASTA-file>.
+Works as follows:
+
+=over 2
+
+=item * Build the smallest set of sequences (C<minimum-set>) that can explain the largest portion of each target sequence based on matching
+cluster oligonucleotide signatures.
+
+=item * Align (using a modified Needleman-Wunsch global alignment algorithm) each sequence in the C<minimum-set> with the target sequence and calculate
+the percentage similarity.
+Multiple source sequences may have the same percentage similarity with the target sequence.
+
+=back
+
+For each source sequence with maximum percentage similarity to the target sequence,
+prints to standard output or to the file specified by B<--match-output> the following tab-delimited fields:
+
+=over 2
+
+=item * Target sequence identifier
+
+=item * Source sequence identifier or B<-> if no matching source sequence was found
+
+=item * Percentage similarity
+
+=item * Length (bp) of the portion of the target sequence that matches perfectly the source sequence
+
+=item * Length of the target sequence
+
+=item * Size of the C<minimum-set> (affects the running time)
+
+=item * Size of the C<maximum-set> of sequences contained in any clusters matched by the target sequence
+
+=back
+
+Suggestion: B<--max-homolo=0> must be specified, otherwise matches containing homopolymers will be ignored and the match percentage will be lowered
+
+=item --match-output=(output-file)
+
+Redirect the output from B<--match> to the output file
+
+Requires a B<--match> input
+
+=back
+
+=head1 OPTIONS
+
+Other command line parameters are optional.
+
+=over
+
+=item --help
+
+Display this command summary then exit.
+
+=item --version
+
+Display version and copyright information
+
+=item --oligo-size=(size[-size])
+
+Look for oligonucleotide signatures of sizes within the specified range
+
+=item --tree-file=(relative-file-name)
+
+Use the phylogeny file in the B<Newick tree> format that groups the
+sequences in the input; oligos will also be sought for all nodes
+in the phylogeny
+
+=item --outgroup-file=(relative-file-name)
+
+The outgroup list is a case-sensitive list of species (sequence names) that are to be excluded from the final output.
+They will still be used in the generation of oligos, but oligos specific to them will be omitted.
+
+Will terminate with an error if a sequence name in the B<--outgroup-file> is not found in any I<fasta-sequence-file>.
+
+=item --isolation-file=(relative-file-name)
+
+A list of taxa or sequences to isolate (one item per line).
+Sequences whose name match (case-sensitive) as a complete substring any of the items in the B<--isolation-file>
+will be the targets of the oligo search. Only oligos for sequences that match
+items on the list or nodes that have sequences that match items
+on the list will be sought. Individual entries in the B<--isolation-file > may match more than one sequence. For example,
+C<carotovorum> will match the following sequences:
+
+=over 2
+
+=item * C<Pectobacterium_carotovorum_actinidae>
+
+=item * C<Pectobacterium_carotovorum_brasiliense>
+
+=back
+
+Will terminate with an error if an item in the B<--isolation-file>
+does not match any sequence in any I<fasta-sequence-file>.
+
+=item --database=(file)
+
+Validate the resulting oligos against a reference database in
+the B<FASTA> format. This option requires specifying a corresponding B<--taxonomy> option.
+
+Will terminate with an error if the database file contains
+sequence names that are not specified in the taxonomy file.
+
+Requires a B<--taxonomy> input.
+
+=item --taxonomy=(file)
+
+Taxonomy information associated with the sequences in the reference database. Each line has tab-separated sequence name and
+lineage, ending in species name (C<s__Genus_species_...>).
+
+The species name (Genus species) of all input sequences encoded
+as C<XX_9999_Genus_species_...> will be extracted. Oligos for input
+sequences that don't match any sequence or match only sequences
+in the reference database for the same species will be kept
+(super-specific oligos); sequence oligos that match reference
+sequences with no species name or with another species name will
+be discarded.
+
+Oligos for internal nodes (group oligos) that match reference
+sequences with a species name other than any of the species
+names in the group (from the input sequences) will also be discarded.
+
+Requires a B<--database> input.
+
+=item --ignore-SNP
+
+Single polymorphism sites (SNP) will be ignored in the design of
+oligos. B<--ignore-SNP> will generate less oligos in more time
+
+=item --reverse-complement
+
+Will take into account the reverse complement of all sequences (default=no):
+
+=over 2
+
+=item * SO will also be generated for the reverse complement of each sequence
+
+=item * All generated SO will be validated against all direct and reverse complement of all sequences
+
+=back
+
+=item --crowded=(yes/no)
+
+Indicates whether for the B<--ranges> and B<--positions> outputs an
+oligo range is populated with intermediary sites (default C<no>)
+
+      |<--range with signature oligos-->|
+      
+                middle of range
+ =====|================|================|=====  nucleotide sequence
+
+      *                *                *       --crowded=no
+      * *    *    *    *    *    *    * *       --crowded=yes>
+       |                      |
+ --first-site-gap    --inter-site-gap
+    
+
+=item --first-site-gap=(gap-size)
+
+For a B<--crowded> display, the size of the gap between the border
+of the range and the first interior site (default C<5>)
+
+=item --inter-site-gap=(gap-size)
+
+For a B<--crowded> display, indicates the size of the gap between
+sites inside an oligo range (default C<5>).
+
+This parameter cannot be set to C<0>.
+
+=item --ambiguous-sources=(yes/no)
+
+Whether sequences containing ambiguities are considered in the
+analysis. The names of these sequences will be written to a
+file called excluded.fasta in the current directory; default C<yes>
+
+=item --threads=(count)
+
+The maximum number of threads for multiprocessor systems. By
+default, aodp will detect the number of available processors/cores (C<n>) and will use C<n-1> threads, or one thread on single
+processor systems.
+
+=item --max-ambiguities=(count)
+
+Indicates the maximum number of ambiguous bases (default C<5>).
+Sequences with more than this number of ambiguous bases will not
+be included in further processing. Their names will be written
+to a file called B<excluded.fasta> in the current directory. If
+this parameter is not specified, no sequences will be filtered
+out based on the number of their ambiguous bases.
+
+=item --max-crowded-ambiguities=(count)
+
+Indicates the maximum number of ambiguous bases within an oligo
+size. Sequences with more than this number of ambiguous bases
+anywhere within a window will not be included in further pro
+cessing. Their names will be written to a file called
+excluded.fasta in the current directory. If this parameter is
+not specified, no sequences will be filtered out based on the
+number of their ambiguous bases.
+
+=item --ambiguous-oligos=(yes/no)
+
+Whether oligos containing ambiguous bases will be sought in the
+analysis; default C<no>
+
+=item --max-homolo=(size)
+
+Maximum length of a homopolymer (e.g. only C<A>s) in any
+oligo; default C<4>; C<0> means no oligos with homopolymers
+will be removed
+
+=item --max-melting=(temperature-C)
+
+Maximum melting temperature (Celsius) for any discovered oligo. Oligos
+with higher melting temperature will be removed from the result.
+If this option is not specified, all oligos are reported.
+
+The two-state melting temperature is calculated using the NN
+model (SantaLucia and Hicks 2004), applied to the most stable
+single-strand self-folding configuration at temperature B<--max-melting>.
+
+  ----------------------------------------------
+ | Tm = DH x ( DS + R x ln ( CT / x )) + 273.15 |
+  ----------------------------------------------
+       (SantaLucia and Hicks 2004; eq. 3)
+
+Use B<--salt> to specify the salt (NaCl) concentration and --strand
+to specify the strand concentration (CT). In melting temperature calculations for oligonucleotide signatures, x is always C<1>.
+
+Since a given strand may have a number of competing self-folding
+configurations, the actual melting temperature will be consistently lower for multi-state coupled equlibria than the calculated two-state melting temperature.
+
+The options B<--max-melting> and B<--ambiguous-oligos=yes> are incompatible.
+
+=item --salt=(Na+ concentration in M)
+
+B<Na+> concentration (default C<1M>). Valid values are between C<0.05M>
+and C<1.1M>
+
+The B<Na+> concentration is used in entropy calculations:
+
+  -----------------------------------------------
+ | DS[Na+] = DS[1M NaCl] x 0.368 x N/2 x ln[Na+] |
+  -----------------------------------------------
+       (SantaLucia and Hicks 2004; eq. 5)
+
+C<N> is the total number of phosphates in the folded configuration.
+For self-folding configurations, C<N> is the strand length in nucleotides minus C<1>.
+
+=item --strand=(single strand concentration in C<mM>)
+
+strand concentration (default C<0.1>) in mM used in (SantaLucia and Hicks 2004; eq. 3). Valid values are between C<0.01> and C<100>.
+
+In melting temperature calculations for oligonucleotide signatures, x is ALWAYS C<1>.
+
+
+=back
+
+=head1 EXAMPLES
+
+By default, output from C<aodp> is directed to the standard console:
+
+             output type
+              =======
+     $ aodp --strings Anisogramma.fasta
+                      =================
+                       input database
+
+Wildcards are supported for the files in the input database:
+
+     $ aodp --strings fasta/*
+
+By specifying a phylogeny tree in the Newick format, oligonucleotide signatures will also be sought for internal nodes
+of the phylogeny:
+
+     $ aodp --strings --tree-file=Anisogramma.tre Anisogramma.fasta
+                                  ===============
+                       phylogeny tree for input database
+
+A number of output types (in separate files with the same prefix)
+will be automatically generated by using the option C<--basename>:
+
+                       output file prefix
+                       ==================
+     $ aodp --basename=Anisogramma.output Anisogramma.fasta
+
+The target oligonucleotide signature length (in base pairs) can be specified as a number:
+
+     $ aodp --strings --oligo-size=32 Anisogramma.fasta
+
+...or as a range:
+
+     $ aodp --strings --oligo-size=24-32 Anisogramma.fasta
+
+Oligonucleotide signatures containing ambiguous base pairs can be sought:
+
+     $ aodp --strings --ambiguous-oligos=yes Anisogramma.fasta
+
+Sequences with ambiguities in the input database can be filtered out using the options
+B<--ambiguous-sources>, B<--max-ambiguities> and B<--max-crowded-ambiguities>:
+
+     $ aodp --strings --max-crowded-ambiguities=8 Anisogramma.fasta
+
+Specific sequences or groups of sequences can be excluded from the output using an I<outgroup> file:
+
+     $ aodp --strings --outgroup-file=A.outgroup Anisogramma.fasta
+
+The output can be restricted to only sequences specified within an I<isolation> file:
+
+     $ aodp --strings --isolation-file=A.iso Anisogramma.fasta
+
+The output can be filtered for maximum melting temperature (Celsius):
+
+     $ aodp --strings --oligo-size=48 --max-melting=45 Anisogramma.fasta
+
+Additional parametes (strand concentration in mM and salt concentration in M) for the calculation of the melting temperature
+can be included:
+
+     $ aodp --strings --oligo-size=48 --max-melting=45 Anisogramma.fasta
+            --salt=0.1 --strand=2
+
+Actual melting temperature and folding configuration for the resulting oligonucleotide signatures can be displayed:
+
+     $ aodp --strings --oligo-size=48 --max-melting=45 Anisogramma.fasta
+            --fold --salt=0.1 --strand=2
+
+The output of C<aodp> can be cross-referenced against
+a reference database, by using the B<--taxonomy> and B<--database> options:
+
+     $ aodp --tree-file=Anisogramma.tre Anisogramma.fasta
+            --database=UNITE_public_mothur_full_10.09.2014
+            --taxonomy=UNITE_public_mothur_full_10.09.2014_taxonomy.txt
+
+=head1 SEE ALSO
+
+=over 2
+
+=item clado
+
+generates an eps file from a phylogeny tree file in a Newick format. Nodes that have names ending in C<*> are colored red.
+
+=item clus
+
+interprets the results of matches of experimental samples against cluster oligo signatures generated by C<aodp>
+
+=item DNA thermodynamics
+
+SantaLucia  J  Jr,  Hicks D. 2004. The Thermodynamics of DNA Structural Motifs. Annu. Rev. Biophys. 33:415-40
+
+=back
+
+=head1 COPYRIGHT
+
+This file is part of C<aodp> (the Automated Oligonucleotide Design Pipeline)
+
+ (C) HER MAJESTY THE QUEEN IN RIGHT OF CANADA (2014-2018)
+ (C) Manuel Zahariev mz@alumni.sfu.ca (2000-2008,2014-2018)
+
+C<aodp> is free software: you can redistribute it and/or
+modify it under the terms of version 3 of the GNU General Public
+License as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License (version 3) for more details.
+
+You should have received a copy of the GNU General Public License
+(version 3) along with this program. If not, see
+http://www.gnu.org/licenses/.
+
+=head1 AUTHORS
+
+Manuel Zahariev (mz@alumni.sfu.ca)
+Wen Chen (wen.chen@agr.gc.ca)
+=cut

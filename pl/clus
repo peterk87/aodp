@@ -1,0 +1,415 @@
+#!/usr/bin/env perl
+
+use Getopt::Long;
+
+use strict;
+
+my %cluster_list;   # cluster => @{ sequences }
+my %sequences;      # sequence => 1
+
+my %cluster_oligos; # oligo => cluster
+
+my %node_list;      # node => @{ sequences }
+
+my %matches;        # oligo => 0/1
+
+my %result_count;   # sequence => minimum set count
+my %result_cluster; # sequence => cluster
+my %result_set;     # sequence => @{ sequences }
+
+sub setEqual { # WARNING: lists passed as parameters MUST be sorted
+	my @a = @{ @_[0] };
+	my @b = @{ @_[1] };
+
+	if( $#a != $#b ) {
+		return 0;
+	}
+
+	for( my $i = 0 ; $i <= $#a ; $i++ ) {
+		if( $a[$i] != $b[ $i ] ) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+sub listEqual {
+	my @a = sort @{ @_[0] };
+	my @b = sort @{ @_[1] };
+
+	return setEqual( \@a, \@b );
+}
+
+# Command line options
+my $cluster_list_file;
+my $cluster_oligos_file;
+my $node_list_file;
+my $matches_file;
+my $crop_flag;
+
+sub input {
+	GetOptions(
+		"cluster-list=s" => \$cluster_list_file,
+		"cluster-oligos=s" => \$cluster_oligos_file,
+		"node-list=s" => \$node_list_file,
+		"matches=s" => \$matches_file,
+		"crop!" => \$crop_flag
+	) or die( "cannot understand command-line options" );
+
+	!!$cluster_list_file
+		or die( "needs parameter --cluster-list" );
+
+	open ClusterList, $cluster_list_file
+		or die( "cannot open --cluster-list file (".$cluster_list_file.")" );
+
+	foreach my $l ( <ClusterList> ) {
+		chomp $l;
+		my @line = split( '\t', $l );
+		my $cluster = $line[ 0 ];
+		my $list = $line[ 1 ];
+		my %clh = map { $_ => 1 } split( ' ', $list ); # unique
+
+# add cluster to cluster_list
+		@{ $cluster_list{ $cluster }} = sort keys %clh;  # WARNING: must be sorted to support setEqual
+
+		map { $sequences{ $_ } = 1 } @{ $cluster_list{ $cluster }};  # collect sequences in "list of sequences"
+	}
+	close ClusterList;
+
+# 	foreach my $cl ( sort { $a <=> $b } keys %cluster_list ) {  # TEST
+# 		print $cl, $/;
+# 		foreach my $se ( @{ $cluster_list{ $cl }} ) {
+# 			print "   ", $se, $/;
+# 		}
+# 	}
+
+# 	map { print $_, $/; } sort keys %sequences;  # TEST
+
+	!!$cluster_oligos_file
+		or die( "needs parameter --cluster-oligos" );
+
+	open ClusterOligos, $cluster_oligos_file
+		or die( "cannot open --cluster-oligos file (".$cluster_oligos_file.")" );
+
+	map {
+		chomp $_;
+
+		my @line = split( '\t' );
+		my $cluster = $line[ 0 ];
+		my $oligo = $line[ 1 ];
+
+		die( "cannot find oligo cluster named in --cluster-oligos (".$line[ 0 ].") in --cluster-list" )
+			unless exists $cluster_list{ $line[ 0 ]};
+
+		$cluster_oligos{ $oligo } = $cluster;
+	} <ClusterOligos>;
+
+	close ClusterOligos;
+
+# 	map { print $_, "\t", $cluster_oligos{ $_ }, $/ } sort keys %cluster_oligos; # TEST
+
+	if( !!$node_list_file ) {
+		open NodeList, $node_list_file
+			or die( "cannot open --node-list file (".$node_list_file.")" );
+
+		foreach my $l ( <NodeList> ) {
+			chomp $l;
+
+			my @line = split( '\t', $l );
+			my $node = $line[0];
+			my $list = $line[1];
+			my %nh = map { $_ => 1 } split( ',', $list ); # unique
+
+# add node to node list
+			@{ $node_list{ $node }} = sort keys %nh;# WARNING: must be sorted to support setEqual
+
+			foreach my $se ( @{ $node_list{ $node }}) { # assertion
+				die( "cannot find sequence names on --node-list (".$se.") in any cluster read with --cluster-list" )
+					unless exists $sequences{ $se };
+			}
+		} ;
+
+		close NodeList;
+	}
+
+# 	foreach my $nl ( sort keys %node_list ) {  # TEST
+# 		local $, = ' ';
+# 		print $nl, "\t", @{ $node_list{ $nl })}, $/;
+# 	}
+
+	!!$matches_file
+		or die( "needs parameter --matches" );
+
+	open Matches, $matches_file
+		or die( "cannot open --matches file (".$matches_file.")" );
+
+	map {
+		chomp $_;
+
+		my @line = split '\t', $_;
+
+		my $oligo = $line[0];
+		my $match = $line[1];
+
+		die( "cannot find oligonucleotide signature named in --matches (".$oligo.") in --cluster-oligos" )
+			unless exists $cluster_oligos{ $oligo };
+
+		$matches{ $oligo } = $match;
+	} <Matches>;
+
+# 	map { print $_, "\t", $matches{ $_ }, $/; } sort keys %matches;   # TEST
+
+	close Matches;
+}
+
+sub run {
+	foreach my $sequence ( sort keys %sequences ) {
+		$result_set{ $sequence } = [];  # ... and empty set
+		$result_count{ $sequence } = -1; # ... and zero minimum set size
+	}
+
+	foreach my $oligo ( sort keys %matches ) {
+		die( "cannot find oligonucleotide signature named in --matches (".$oligo.") in --cluster-oligos" )
+			unless exists $cluster_oligos{ $oligo };
+
+# 		print $cluster_oligos{ $oligo }, "\t", $matches{ $oligo }, $/; # TEST
+
+		my $cluster = $cluster_oligos{ $oligo };
+
+		if( $matches{ $oligo } == 1 ) {
+# 	HERE: oligo is found
+# 			print $oligo, "\t", $cluster, "\t", $#{ $cluster_list{ $cluster }}, $/; # TEST
+
+			if( $#{ $cluster_list{ $cluster }} == 0 ) {
+# 		HERE, this is a sequence oligo signature
+				my $sequence = $cluster_list{ $cluster }[ 0 ];
+
+				$result_cluster{ $sequence } = $cluster;
+				$result_count{ $sequence } = 1;
+
+# 				print $sequence, "\t", $result{ $sequence }, $/; # TEST
+				next;
+			}
+
+# 		HERE, the cluster has more than one sequence
+			foreach my $sequence ( @{ $cluster_list{ $cluster }}) { # for all sequences in the matching cluster
+				next if $result_count{ $sequence } == 1; # sequence is already "FOUND"
+				next if $result_count{ $sequence } == 0; # sequence is already "NOT FOUND"
+
+				next unless
+					!exists( $result_cluster{ $sequence }) or # the sequence does not have a result cluster
+					( $#{ $cluster_list{ $result_cluster{ $sequence }}} > $#{ $cluster_list{ $cluster }}); # or the result cluster is bigger than the current one
+				# skip sequence unless the current result set is smaller than the recorded one
+
+				$result_cluster{ $sequence } = $cluster;
+				$result_count{ $sequence } = $#{ $cluster_list{ $result_cluster{ $sequence }}} + 1;
+			}
+
+			next;
+		}
+
+# 	HERE: oligo IS NOT FOUND
+		if( $#{ $cluster_list{ $cluster }} == 0 ) {
+# 		HERE, this is a sequence oligo signature
+			my $sequence = $cluster_list{ $cluster }[ 0 ];
+
+			delete $result_cluster{ $sequence };
+			$result_count{ $sequence } = 0;
+
+# 			print $sequence, "\t", $result{ $sequence }, $/; # TEST
+		}
+
+		next unless $crop_flag;
+
+		foreach my $sequence ( @{ $cluster_list{ $cluster }}) { # mark as NOT FOUND all sequences in the cluster
+			delete $result_cluster{ $sequence };
+			$result_count{ $sequence } = 0;
+		}
+	}
+
+# 	foreach my $sequence ( sort keys %result ) { # TEST
+# 		local $, = ' ';
+
+# 		print $sequence, "\t", $result{ $sequence }, "\t";
+# 		print @{ $cluster_list{ $result_cluster{ $sequence }})} unless $result{ $sequence } eq '0';
+# 		print $/;
+# 	}
+
+	foreach my $sequence ( sort keys %result_cluster ) { # sequences without a result_cluster have no matches
+
+		@{ $result_set{ $sequence }} = grep {
+			!$crop_flag or $result_count{ $_ } != 0      # on --crop, eliminate sequences known not to match
+		} @{ $cluster_list{ $result_cluster{ $sequence }}};
+
+		$result_count{ $sequence } = $#{ $result_set{ $sequence }} + 1;  # adjust count (--crop may have removed some sequences)
+	}
+
+# 	print "===========================", $/; # TEST
+}
+
+sub show {
+	foreach my $sequence ( sort keys %sequences ) {
+		local $, = ' ';
+
+		print $sequence, "\t", $result_count{ $sequence }, "\t", @{ $result_set{ $sequence }};
+
+		if( $node_list_file ) { # node_list specified: try to match cluster with a node
+			print "\t";
+
+			foreach my $node ( sort keys %node_list ) {
+				if( setEqual( $result_set{ $sequence }, $node_list{ $node })) {
+					print $node;
+					last;
+				}
+			}
+		}
+		print $/;
+	};
+}
+
+sub clus {
+	input();
+	run();
+	show();
+}
+
+if(( $#ARGV < 0 ) || ( $ARGV[0] eq "--help" )) {
+	system( "perldoc $0" );
+	exit 1;
+}
+
+clus();
+
+0;
+
+=head1 NAME 
+
+=for comment
+version number; automatically generated from the latest git tag
+overwrites stuff between "" in the line below magic
+see the Makefile in the project root
+magic line below (do not modify)
+
+L<|iMMmwyWGTTGeJ6TYQg2myA>
+Cluster oligo signature analyzer (C<clus>) version "2.5.0.1"
+
+=head1 SYNOPSIS
+
+ clus --cluster-list=Penicillium.cluster-list \
+      --cluster-oligos=Penicillium.cluster-oligos \
+      --node-list=Penicillium.node-list --matches=sample.matches
+
+=head1 DESCRIPTION
+
+C<clus> interprets the results of matches of experimental samples against cluster oligo signatures generated by C<aodp>.
+
+C<clus> is a "field companion" utility for C<aodp>. It uses as input 
+cluster oligonucleotide signatures generated by C<aodp> and
+matches them against the result of a test of some of these
+cluster oligonucleotide signatures against a field sample.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --cluster-list=(file)
+
+File containing a list of clusters generated by C<aodp> with the option C<--cluster-list>
+
+=item --cluster-oligo=(file)
+
+File containing a list of cluster oligonucleotide signatures generated by C<aodp> with the option C<--cluster-oligos>
+
+=item --matches=(file)
+
+File containing a list of matches from a field sample against oligonucleotide signatures
+from the file in C<--cluster-oligos>.
+C<clus> will only consider that items not included in this file were not tested against
+the field sample.
+Each row must contain the following tab-separated fields:
+
+=over 2
+
+=item * cluster oligonucleotide signature (string representation)
+
+=item * B<1> if this oligonucleotide signature matches the sample and B<0> otherwise
+
+=back
+
+=item --node-list=(file)   (optional parameter)
+
+File containing a list of phylogeny nodes generated by C<aodp> with the option C<--node-list>
+
+=item --crop   (optional parameter)
+
+Will mark as B<not found> all sequences in clusters with oligonucleotide signatures that do not match with the sample:
+the size of minimum group conclusively present in the sample containing each such sequence is zero.
+
+For example, if a cluster I<C> containing sequence I<Y> does not match the sample, sequence I<Y> will 
+
+The smallest group containing sequences will also narrowed by performing set operations on the results.
+
+For example, if the sample matches a cluster oligonucleotide signature for the sequences I<X> and I<Y>,
+but the sequence I<Y> shows B<not found>,
+C<--crop> will show the minimum set for sequence I<X> as I<{ X }>.
+
+Without C<--crop>, the minimum set for sequence I<X> will be shown as I<{X, Y}>.
+
+=back
+
+=head1 OUTPUT
+
+C<clus> prints to standard output sequence-level answers, in rows with the following tab-separated fields:
+
+=over 4
+
+=item * sequence identifier (as specified in the second column of the C<--cluster-list> file)
+
+=item * the size of the smallest group conclusively present in the sample that contains the sequence.
+B<0> means that the sequence is conclusively NOT IN the sample;
+B<1> means that the sequence is conclusively in the sample;
+B<more than 1> means that the sequence may or may not be in the sample.
+
+=item * a list of space-separated sequence identifiers from the smallest group conclusively present in the sample that contains the sequence
+
+=item * if the group in the previous field is a node in the phylogenetic tree (from C<--node-list>), the name of that node is included
+
+=back
+
+=head1 SEE ALSO
+
+=over 2
+
+=item aodp
+
+The Automated Oligonucleotide Design Pipeline finds oligonucleotide signatures for sequences and groups of sequences in a sequence database
+
+=back
+
+=head1 COPYRIGHT
+
+This file is part of C<aodp> (the Automated Oligonucleotide Design Pipeline)
+
+C<(C) HER MAJESTY THE QUEEN IN RIGHT OF CANADA (2016)>
+
+C<(C) Manuel Zahariev mz@alumni.sfu.ca (2016)>
+
+C<aodp> is free software: you can redistribute it and/or
+modify it under the terms of version 3 of the GNU General Public
+License as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License (version 3) for more details.
+
+You should have received a copy of the GNU General Public License
+(version 3) along with this program. If not, see
+http://www.gnu.org/licenses/.
+
+=head1 AUTHORS
+
+Manuel Zahariev (mz@alumni.sfu.ca)
+
+=cut
