@@ -13,12 +13,14 @@ jobs:
     
     steps:
     - name: Setup Miniconda
-      uses: goanpeca/setup-miniconda@v1.0.2
+      uses: conda-incubator/setup-miniconda@v2.0.1
       with:
-        auto-update-conda: true
+        channels: bioconda,conda-forge,defaults
+        channel-priority: true
         python-version: 3.8
+        use-only-tar-bz2: true
     - name: Install BioPerl >=1.7.2
-      run: conda install -c bioconda "perl-bioperl>=1.7.2"
+      run: conda install "perl-bioperl>=1.7.2"
     - uses: actions/checkout@v2
     - name: configure
       run: ./configure
