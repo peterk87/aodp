@@ -29,7 +29,7 @@ const string Application :: dash = "--";
 void Application::help()
 {
 	cout << _help;
-	exit( 1 );
+	exit( 0 );
 }
 
 /**
@@ -48,7 +48,7 @@ void Application::printVersion()
 	cout << endl;
 	cout << "author: Manuel Zahariev, mz@alumni.sfu.ca" << endl;
 
-	exit( 1 );
+	exit( 0 );
 }
 
 /**

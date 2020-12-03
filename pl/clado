@@ -38,7 +38,7 @@ sub clado {
 
 if(( $#ARGV < 1 ) || ( $ARGV[0] eq "--help" )) {
 	system( "perldoc $0" );
-	exit 1;
+	exit 0;
 }
 
 clado();
