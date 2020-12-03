@@ -17,7 +17,7 @@ jobs:
       with:
         channels: bioconda,conda-forge,defaults
         channel-priority: true
-        python-version: 3.8
+        python-version: 3.7
         use-only-tar-bz2: true
     - name: Install BioPerl >=1.7.2
       run: conda install "perl-bioperl>=1.7.2"
