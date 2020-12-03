@@ -1,9 +1,9 @@
 # AODP: Automated Oligonucleotide Design Pipeline
 
-![C++ Build CI](https://github.com/peterk87/aodp/workflows/C++%20Build%20CI/badge.svg)
+[![C++ Build CI](https://github.com/peterk87/aodp/workflows/C++%20Build%20CI/badge.svg)](https://github.com/peterk87/aodp/actions?query=workflow%3A%22C%2B%2B+Build+CI%22)
 [![DOI](https://img.shields.io/badge/DOI-10.1186%2Fs12859--018--2363--3-blue.svg)](https://doi.org/10.1186/s12859-018-2363-3)
-![GitHub](https://img.shields.io/github/license/peterk87/aodp)
-![Conda (channel only)](https://img.shields.io/conda/vn/bioconda/aodp)
+[![GitHub](https://img.shields.io/github/license/peterk87/aodp)](./COPYING)
+[![Conda (channel only)](https://img.shields.io/conda/vn/bioconda/aodp)](https://bioconda.github.io/recipes/aodp/README.html)
 
 The Automated Oligonucleotide Design Pipeline (aodp) is an utility that generates oligonucleotide signatures for
 sequences in the FASTA format and for groups in a phylogeny in the Newick tree format.
