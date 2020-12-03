@@ -15,10 +15,13 @@ jobs:
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
+        activate-environment: test
         channels: bioconda,conda-forge,defaults
         channel-priority: true
         python-version: 3.7
         use-only-tar-bz2: true
+    - name: Conda info
+      run: conda info && conda list
     - name: Install BioPerl >=1.7.2
       run: conda install "perl-bioperl>=1.7.2"
     - uses: actions/checkout@v2
