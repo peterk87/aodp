@@ -6,7 +6,7 @@
 // overwrites stuff between "" in the line below magic
 // see the Makefile in the project root
 // magic (do not modify): iMMmwyWGTTGeJ6TYQg2myA
-const string Application::version = "2.5.0.1"; // do not modify
+const string Application::version = "2.5.0.2"; // do not modify
 
 const int Application :: I_oligo_size_min = 12;
 const int Application :: I_oligo_size_max = 100;
