@@ -2,7 +2,7 @@
 
 const string Application::_help =
 "NAME\n"
-"     aodp - Automated Oligonucleotide Design Pipeline version \"2.5.0.1\"\n"
+"     aodp - Automated Oligonucleotide Design Pipeline version \"2.5.0.2\"\n"
 "\n"
 "SYNOPSIS\n"
 "    aodp [*options*] *output* *fasta-sequence-file...*\n"

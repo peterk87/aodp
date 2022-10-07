@@ -137,7 +137,7 @@ void Match::onSequence( const string& na, const Cover<Position>& amb, Alignment&
 
 // 	(2) build the minimum set of sequences
 	struct ClusterSizeCompare{
-		bool operator() ( const Cluster& c1, const Cluster& c2 ) {
+		bool operator() ( const Cluster& c1, const Cluster& c2 ) const {
 			const size_t s1 = clusters.at( c1 ).size();
 			const size_t s2 = clusters.at( c2 ).size();
 

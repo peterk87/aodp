@@ -8,7 +8,7 @@
 # see the Makefile in the project root
 # magic line below (do not modify)
 # iMMmwyWGTTGeJ6TYQg2myA
-VERSION= "2.5.0.1"
+VERSION= "2.5.0.2"
 
 PERL_DIR= ../pl
 POD_DIR= pod
